@@ -437,7 +437,6 @@ def simulate_fmu(filename,
                  output_interval=None,
                  record_events=True,
                  fmi_type=None,
-                 use_source_code=False,
                  start_values={},
                  apply_default_start_values=False,
                  input=None,
@@ -463,7 +462,6 @@ def simulate_fmu(filename,
         output_interval     interval for sampling the output
         record_events       record outputs at events (model exchange only)
         fmi_type            FMI type for the simulation (None: determine from FMU)
-        use_source_code     compile the shared library (requires C sources)
         start_values        dictionary of variable name -> value pairs
         apply_default_start_values  apply the start values from the model description
         input               a structured numpy array that contains the input (see :class:`Input`)
@@ -475,6 +473,7 @@ def simulate_fmu(filename,
         logger              callback function passed to the FMU (experimental)
         step_finished       callback to interact with the simulation (experimental)
         model_description   the previously loaded model description (experimental)
+        fmu_instance        the previously instantiated FMU (experimental)
 
     Returns:
         result              a structured numpy array that contains the result
@@ -483,7 +482,7 @@ def simulate_fmu(filename,
     from fmpy import supported_platforms
     from fmpy.model_description import read_model_description
 
-    if not use_source_code and platform not in supported_platforms(filename):
+    if fmu_instance is None and platform not in supported_platforms(filename):
         raise Exception("The current platform (%s) is not supported by the FMU." % platform)
 
     if model_description is None:
