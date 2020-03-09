@@ -559,10 +559,7 @@ def simulate_fmu(filename,
         callbacks.allocateMemory = fmi2CallbackAllocateMemoryTYPE(allocateMemory)
         callbacks.freeMemory     = fmi2CallbackFreeMemoryTYPE(freeMemory)
     else:
-        callbacks = fmi3.fmi3CallbackFunctions()
-        callbacks.logMessage     = fmi3.fmi3CallbackLogMessageTYPE(logger)
-        callbacks.allocateMemory = fmi3.fmi3CallbackAllocateMemoryTYPE(fmi3.allocateMemory)
-        callbacks.freeMemory     = fmi3.fmi3CallbackFreeMemoryTYPE(fmi3.freeMemory)
+        callbacks = None
 
     # simulate_fmu the FMU
     if fmi_type == 'ModelExchange' and model_description.modelExchange is not None:
@@ -618,7 +615,7 @@ def simulateME(model_description, fmu_kwargs, start_time, stop_time, solver_name
         fmu.setupExperiment(startTime=start_time)
     else:
         fmu = fmi3.FMU3Model(**fmu_kwargs)
-        fmu.instantiate(visible=visible, callbacks=callbacks, loggingOn=debug_logging)
+        fmu.instantiate(visible=visible, loggingOn=debug_logging)
         fmu.setupExperiment(startTime=start_time)
 
     input = Input(fmu, model_description, input_signals)
@@ -635,12 +632,17 @@ def simulateME(model_description, fmu_kwargs, start_time, stop_time, solver_name
         fmu.exitInitializationMode()
 
         # event iteration
-        fmu.eventInfo.newDiscreteStatesNeeded = fmi2True
-        fmu.eventInfo.terminateSimulation = fmi2False
+        newDiscreteStatesNeeded = True
+        terminateSimulation = False
 
-        while fmu.eventInfo.newDiscreteStatesNeeded == fmi2True and fmu.eventInfo.terminateSimulation == fmi2False:
+        while newDiscreteStatesNeeded and not terminateSimulation:
             # update discrete states
-            fmu.newDiscreteStates()
+            (newDiscreteStatesNeeded,
+             terminateSimulation,
+             nominalsOfContinuousStatesChanged,
+             valuesOfContinuousStatesChanged,
+             nextEventTimeDefined,
+             nextEventTime) = fmu.newDiscreteStates()
 
         fmu.enterContinuousTimeMode()
 
@@ -713,8 +715,10 @@ def simulateME(model_description, fmu_kwargs, start_time, stop_time, solver_name
 
         if is_fmi1:
             time_event = fmu.eventInfo.upcomingTimeEvent != fmi1False and fmu.eventInfo.nextEventTime <= t_next
-        else:
+        elif is_fmi2:
             time_event = fmu.eventInfo.nextEventTimeDefined != fmi2False and fmu.eventInfo.nextEventTime <= t_next
+        else:
+            time_event = nextEventTimeDefined and nextEventTime <= t_next
 
         if time_event and not fixed_step:
             t_next = fmu.eventInfo.nextEventTime
@@ -808,7 +812,7 @@ def simulateCS(model_description, fmu_kwargs, start_time, stop_time, relative_to
         fmu.setupExperiment(tolerance=relative_tolerance, startTime=start_time)
     else:
         fmu = fmi3.FMU3Slave(**fmu_kwargs)
-        fmu.instantiate(visible=visible, callbacks=callbacks, loggingOn=debug_logging)
+        fmu.instantiate(visible=visible, loggingOn=debug_logging)
         fmu.setupExperiment(tolerance=relative_tolerance, startTime=start_time)
 
     input = Input(fmu=fmu, modelDescription=model_description, signals=input_signals)
