@@ -626,6 +626,20 @@ def simulateME(model_description, fmu_kwargs, start_time, stop_time, solver_name
     if is_fmi1:
         input.apply(time)
         fmu.initialize()
+    elif is_fmi2:
+        fmu.enterInitializationMode()
+        input.apply(time)
+        fmu.exitInitializationMode()
+
+        # event iteration
+        fmu.eventInfo.newDiscreteStatesNeeded = fmi2True
+        fmu.eventInfo.terminateSimulation = fmi2False
+
+        while fmu.eventInfo.newDiscreteStatesNeeded == fmi2True and fmu.eventInfo.terminateSimulation == fmi2False:
+            # update discrete states
+            fmu.newDiscreteStates()
+
+        fmu.enterContinuousTimeMode()
     else:
         fmu.enterInitializationMode()
         input.apply(time)
@@ -636,7 +650,6 @@ def simulateME(model_description, fmu_kwargs, start_time, stop_time, solver_name
         terminateSimulation = False
 
         while newDiscreteStatesNeeded and not terminateSimulation:
-            # update discrete states
             (newDiscreteStatesNeeded,
              terminateSimulation,
              nominalsOfContinuousStatesChanged,
