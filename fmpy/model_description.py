@@ -689,6 +689,9 @@ def read_model_description(filename, validate=True, validate_variable_names=Fals
 
                 attr.append(unknown)
 
+    if fmiVersion.startswith('3.0'):
+        modelDescription.numberOfEventIndicators = len(root.findall('ModelStructure/EventIndicator'))
+
     if validate:
 
         # assert attribute "derivative" for derivatives defined in <ModelStructure>
